@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Distributed Guitar Amp Client</title>
+  </head>
+  <body>
+    <script src="/js/peerjs.min.js"></script>
+
+    <h1>Amp Node</h1>
+    <button id="connect">Connect</button>
+    <button id="close">Leave</button>
+
+    <script>
+      document.querySelector("#connect").addEventListener("click", startAmp);
+
+      async function startAmp() {
+        const audio = new Audio();
+
+        // const stream = await navigator.mediaDevices.getUserMedia({ video: false, audio: true });
+        const peer = new Peer({
+          host: location.hostname,
+          port: location.port,
+          path: "/peer"
+        });
+
+        // reserved name for performer peer
+        const roomID = "distributed-guitar-amp-recurse";
+
+        document.querySelector("#close").addEventListener("click", () => {
+          peer.disconnect();
+        });
+
+        peer.on("open", function(id) {
+          console.log("Opening conection to PeerJS", id);
+          if (roomID) {
+            peer.connect(roomID, function(e) {
+              console.log(e);
+              confirm.log("Inside the room?");
+            });
+          }
+        });
+
+        peer.on("call", async function(call) {
+          console.log(call);
+          console.log("receiving call");
+
+          // answer the call
+          call.answer();
+
+          // start sreaming the audio on the client
+          call.on("stream", function(remoteStream) {
+            audio.srcObject = remoteStream;
+            audio.play();
+          });
+        });
+      }
+    </script>
+  </body>
+</html>

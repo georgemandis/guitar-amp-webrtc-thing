@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Distributed Guitar Amp Client</title>
+  </head>
+  <body>
+    <script src="/js/peerjs.min.js"></script>
+
+    <h1>Performer</h1>
+    <button id="audio">Start Audio</button>    
+
+    <script>
+      const peer = new Peer("distributed-guitar-amp-recurse", {
+        host: location.hostname,
+        port: location.port,
+        path: "/peer"
+      });
+
+      const peerList = [];
+      const dataConnections = new Map();
+      const streamConnections = new Map();
+
+      let stream;
+
+      peer.on("open", function(id) {
+        // connected to PeerJS WebRTC server
+        console.log("connected", id);
+      });
+
+      // when an amp node connects to it
+      peer.on("connection", function(connection) {
+        console.log(connection.peer + " connected with me");
+        console.log("New Amp Node: " + connection.peer);
+
+        peerList.push(connection.peer);
+        dataConnections.set(connection.peer, peer.connect(connection.peer));
+
+        // updated audio nodes
+        if (stream) {
+          sendAudio();
+        }
+
+        // a peer disconnects! Splice from peerList
+        dataConnections.get(connection.peer).on("close", function(connect) {
+          console.log(`Orchestra member ${connection.peer} CLOSED`);
+          const index = peerList.indexOf(connection.peer);
+          peerList.splice(index, 1);
+          dataConnections.delete(connection.peer);
+          streamConnections.delete(connection.peer);
+        });
+      });
+
+      document.querySelector("#audio").addEventListener("click", async () => {
+        stream = await navigator.mediaDevices.getUserMedia({
+          video: false,
+          audio: true
+        });
+      });
+
+      async function sendAudio() {
+        dataConnections.forEach((value, key) => {
+          // create stream objects if not present
+          // inside our stream connection map
+          if (!streamConnections.has(key)) {
+            const peerObject = dataConnections.get(key);
+            const call = peer.call(peerObject.peer, stream);
+
+            call.on("stream", function(remoteStream) {
+              console.log("Call answered! Streaming?");
+            });
+
+            streamConnections.set(key, call);
+          }
+        });
+      }
+    </script>
+  </body>
+</html>
